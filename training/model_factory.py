@@ -84,9 +84,19 @@ class ModelFactory:
             loftq_config=None,
         )
 
+        # Handle multimodal processors (e.g., Gemma4Processor).
+        # These wrap a tokenizer internally but lack standard tokenizer
+        # methods like .encode(), which breaks the rest of the pipeline.
+        if hasattr(tokenizer, 'tokenizer') and not hasattr(tokenizer, 'encode'):
+            logger.info(
+                "Detected multimodal processor (%s) — extracting underlying tokenizer.",
+                type(tokenizer).__name__,
+            )
+            tokenizer = tokenizer.tokenizer
+
         # Ensure the tokenizer has a chat template.
-        # Qwen2.5 and most modern instruct models ship with their own
-        # template; only fall back to 'chatml' if none is present.
+        # Qwen2.5, Gemma, and most modern instruct models ship with their
+        # own template; only fall back to 'chatml' if none is present.
         if tokenizer.chat_template is None:
             logger.info("No chat template found — applying 'chatml'.")
             tokenizer = get_chat_template(tokenizer, chat_template="chatml")

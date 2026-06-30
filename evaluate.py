@@ -99,6 +99,9 @@ def main():
             load_in_4bit=True,
             device_map={"": accelerator.local_process_index},
         )
+        # Handle multimodal processors (e.g., Gemma4Processor)
+        if hasattr(tokenizer, 'tokenizer') and not hasattr(tokenizer, 'encode'):
+            tokenizer = tokenizer.tokenizer
         # Enable native 2x faster inference
         FastLanguageModel.for_inference(model)
     else:
