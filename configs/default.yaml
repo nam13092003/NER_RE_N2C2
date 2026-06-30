@@ -11,7 +11,7 @@ model:
   # Gemma 4 E4B Instruct — Google's efficient multilingual instruct model
   # Loaded via Unsloth for 2x faster training and lower VRAM usage
   name: "unsloth/gemma-4-E4B-it"
-  max_seq_length: 1024
+  max_seq_length: 512
   seed: 42
 
 # ── LoRA ─────────────────────────────────────────────────────
@@ -46,8 +46,8 @@ training:
   #   "global"   → 1 sample per sentence     (faster inference, natural for JOINT)
   re_mode: "global"
 
-  batch_size: 4
-  gradient_accumulation_steps: 4
+  batch_size: 2
+  gradient_accumulation_steps: 8
   learning_rate: 5.0e-5
   epochs: 5
   weight_decay: 0.01
