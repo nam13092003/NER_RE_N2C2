@@ -184,7 +184,11 @@ def main():
             start = args.start_index if args.start_index is not None else 0
             end = args.end_index if args.end_index is not None else len(eval_raw_full)
             eval_raw_full = eval_raw_full.select(range(start, end))
-        all_references = eval_raw_full["assistant"]
+            
+        if config.training.format.value == "instruction":
+            all_references = eval_raw_full["assistant"]
+        else:
+            all_references = [t.split("### Output:\n")[1] for t in eval_raw_full["text"]]
         
         logger.info("Computing metrics...")
         
