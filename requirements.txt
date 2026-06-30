@@ -7,10 +7,12 @@ peft>=0.10.0
 trl>=0.8.6
 bitsandbytes>=0.43.0
 
-# Unsloth — install separately on Kaggle (see README)
+# Unsloth — optional, for faster training (install separately on Kaggle)
+# pip install unsloth
 # unsloth @ git+https://github.com/unslothai/unsloth.git
 
 # Config & utilities
 pyyaml>=6.0
 scikit-learn>=1.4.0
 numpy>=1.26.0
+tqdm

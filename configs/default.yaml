@@ -1,5 +1,5 @@
 # ============================================================
-# NER + RE Pipeline — Default Configuration
+# NER + RE Pipeline — Vietnamese Configuration (Gemma 4 E4B Instruct)
 # ============================================================
 # Edit this file to control every aspect of the experiment.
 # Run:
@@ -8,12 +8,9 @@
 
 # ── Model ────────────────────────────────────────────────────
 model:
-  # Unsloth-optimised instruct model (4-bit quantised)
-  # Options:
-  #   "unsloth/Phi-3-mini-4k-instruct-bnb-4bit"   ← fast, low VRAM
-  #   "unsloth/llama-3-8b-Instruct-bnb-4bit"      ← higher accuracy
-  #   "unsloth/mistral-7b-instruct-v0.2-bnb-4bit"
-  name: "unsloth/Phi-3-mini-4k-instruct-bnb-4bit"
+  # Gemma 4 E4B Instruct — Google's efficient multilingual instruct model
+  # Loaded via Unsloth for 2x faster training and lower VRAM usage
+  name: "unsloth/gemma-4-E4B-it"
   max_seq_length: 1024
   seed: 42
 
@@ -49,10 +46,10 @@ training:
   #   "global"   → 1 sample per sentence     (faster inference, natural for JOINT)
   re_mode: "global"
 
-  batch_size: 8
+  batch_size: 4
   gradient_accumulation_steps: 4
-  learning_rate: 2.0e-4
-  epochs: 3
+  learning_rate: 5.0e-5
+  epochs: 5
   weight_decay: 0.01
   warmup_ratio: 0.1
   output_dir: "/kaggle/working/outputs"
@@ -67,44 +64,36 @@ training:
   early_stopping_patience: 10
 
 # ── Data ─────────────────────────────────────────────────────
-# Each entry:
-#   path:     absolute path to the JSONL file
-#   language: "auto" (detect from JSONL keys) | "en" | "vi"
+# Vietnamese-only data for Vietnamese fine-tuning
 data:
   train_files:
-    - path: "/kaggle/input/n2c2-eng/n2c2_2010_train_en.jsonl"
-      language: "auto"
     - path: "/kaggle/input/n2c2-eng/n2c2_2010_train_vi.jsonl"
-      language: "auto"
+      language: "vi"
   eval_files:
-    - path: "/kaggle/input/n2c2-eng/n2c2_2010_test_en.jsonl"
-      language: "auto"
     - path: "/kaggle/input/n2c2-eng/n2c2_2010_test_vi.jsonl"
-      language: "auto"
+      language: "vi"
   test_files:
-    - path: "/kaggle/input/n2c2-eng/n2c2_2010_test_en.jsonl"
-      language: "auto"
     - path: "/kaggle/input/n2c2-eng/n2c2_2010_test_vi.jsonl"
-      language: "auto"
+      language: "vi"
 
 # ── Labels ───────────────────────────────────────────────────
-# These definitions are embedded directly into the prompts so the
-# model learns the semantic meaning of each label, not just the name.
+# Bilingual label definitions (English + Vietnamese) to help the model
+# understand medical concepts in Vietnamese context.
 labels:
   entities:
-    Problem:   "Health issues including diseases, symptoms, disorders, or injuries"
-    Treatment: "Medical interventions including medications, surgeries, therapies, or devices"
-    Test:      "Clinical measurements including lab tests, imaging studies, or examinations"
+    Problem:   "Vấn đề sức khỏe (Health issues) bao gồm bệnh, triệu chứng, rối loạn, chấn thương"
+    Treatment: "Phương pháp điều trị (Medical interventions) bao gồm thuốc, phẫu thuật, liệu pháp, thiết bị y tế"
+    Test:      "Xét nghiệm lâm sàng (Clinical measurements) bao gồm xét nghiệm máu, chẩn đoán hình ảnh, khám"
 
   relations:
-    TrIP:  "Treatment Improves Problem"
-    TrWP:  "Treatment Worsens Problem"
-    TrCP:  "Treatment Causes Problem"
-    TrAP:  "Treatment Administered for Problem"
-    TrNAP: "Treatment Not Administered because of Problem"
-    TeRP:  "Test Reveals Problem"
-    TeCP:  "Test Conducted because of Problem"
-    PIP:   "Problem Indicates Problem"
+    TrIP:  "Điều trị Cải thiện Vấn đề (Treatment Improves Problem)"
+    TrWP:  "Điều trị Làm xấu Vấn đề (Treatment Worsens Problem)"
+    TrCP:  "Điều trị Gây ra Vấn đề (Treatment Causes Problem)"
+    TrAP:  "Điều trị Được chỉ định cho Vấn đề (Treatment Administered for Problem)"
+    TrNAP: "Điều trị Không được chỉ định vì Vấn đề (Treatment Not Administered because of Problem)"
+    TeRP:  "Xét nghiệm Phát hiện Vấn đề (Test Reveals Problem)"
+    TeCP:  "Xét nghiệm Được thực hiện vì Vấn đề (Test Conducted because of Problem)"
+    PIP:   "Vấn đề Chỉ ra Vấn đề (Problem Indicates Problem)"
 
   # Allowed (subject_label, object_label) pairs — used for PAIRWISE RE
   # to filter entity pairs that can logically have a clinical relation.

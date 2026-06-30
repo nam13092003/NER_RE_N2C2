@@ -31,7 +31,7 @@ from config import PipelineConfig, TrainingFormat
 from data.registry import DatasetRegistry
 from prompts.factory import PromptBuilderFactory
 from training.collator import DataCollatorWithLossMask
-from training.model_factory import UnslothModelFactory
+from training.model_factory import ModelFactory
 from training.trainer import NativeSafeTrainer
 
 logging.basicConfig(
@@ -216,7 +216,7 @@ def main() -> None:
     # ------------------------------------------------------------------
     # 3. Load model
     # ------------------------------------------------------------------
-    model, tokenizer = UnslothModelFactory.load(config)
+    model, tokenizer = ModelFactory.load(config)
 
     # ------------------------------------------------------------------
     # 4. Tokenise
@@ -311,11 +311,19 @@ def main() -> None:
         logger.info("LoRA adapter saved to: %s", lora_path)
 
         # ── 7b. Merged model (base + LoRA, ready for inference) ───────
-        # Since the base model is 4-bit quantised, standard PEFT merge_and_unload()
-        # fails with NotImplementedError. Unsloth provides a native method for this.
-        logger.info("Merging LoRA weights into base model (16-bit) …")
+        # Unsloth provides a native method for merging 4-bit LoRA weights.
+        # For standard HuggingFace + PEFT, we use merge_and_unload().
         merged_path = os.path.join(config.training.output_dir, "final_merged_model")
-        trainer.model.save_pretrained_merged(merged_path, tokenizer, save_method="merged_16bit")
+        if hasattr(trainer.model, "save_pretrained_merged"):
+            # Unsloth path
+            logger.info("Merging LoRA weights via Unsloth (16-bit) …")
+            trainer.model.save_pretrained_merged(merged_path, tokenizer, save_method="merged_16bit")
+        else:
+            # Standard PEFT path
+            logger.info("Merging LoRA weights via PEFT merge_and_unload() …")
+            merged_model = trainer.model.merge_and_unload()
+            merged_model.save_pretrained(merged_path)
+            tokenizer.save_pretrained(merged_path)
         logger.info("Merged model saved to: %s", merged_path)
 
         logger.info(

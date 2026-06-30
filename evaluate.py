@@ -7,13 +7,19 @@ from tqdm import tqdm
 
 from accelerate import Accelerator
 from accelerate.utils import gather_object
-from unsloth import FastLanguageModel
 from transformers import set_seed
 
 from config import PipelineConfig
 from data.registry import DatasetRegistry
 from prompts.factory import PromptBuilderFactory
 from training.metrics import compute_ner_metrics, compute_re_metrics
+
+# Try Unsloth first, fall back to standard HuggingFace
+try:
+    from unsloth import FastLanguageModel
+    _HAS_UNSLOTH = True
+except ImportError:
+    _HAS_UNSLOTH = False
 
 logger = logging.getLogger(__name__)
 
@@ -85,15 +91,33 @@ def main():
     logger.info(f"Process {accelerator.process_index} will process {len(eval_raw)} samples")
 
     logger.info(f"Loading model from {args.checkpoint} on GPU {accelerator.local_process_index}...")
-    model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name=args.checkpoint,
-        max_seq_length=config.model.max_seq_length,
-        dtype=None,
-        load_in_4bit=True,
-        device_map={"": accelerator.local_process_index},
-    )
-    # Enable native 2x faster inference
-    FastLanguageModel.for_inference(model)
+    if _HAS_UNSLOTH:
+        model, tokenizer = FastLanguageModel.from_pretrained(
+            model_name=args.checkpoint,
+            max_seq_length=config.model.max_seq_length,
+            dtype=None,
+            load_in_4bit=True,
+            device_map={"": accelerator.local_process_index},
+        )
+        # Enable native 2x faster inference
+        FastLanguageModel.for_inference(model)
+    else:
+        from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+        import torch
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_use_double_quant=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+        )
+        tokenizer = AutoTokenizer.from_pretrained(args.checkpoint, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            args.checkpoint,
+            quantization_config=bnb_config,
+            device_map={"": accelerator.local_process_index},
+            trust_remote_code=True,
+        )
+        model.eval()
 
     logger.info("Running inference...")
     
