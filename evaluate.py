@@ -24,6 +24,8 @@ def parse_args():
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to LoRA adapter folder")
     parser.add_argument("--batch_size", type=int, default=4, help="Inference batch size per GPU")
     parser.add_argument("--output", type=str, default="predictions.jsonl", help="Optional path to save prediction results")
+    parser.add_argument("--start_index", type=int, default=None, help="Start index of evaluation samples")
+    parser.add_argument("--end_index", type=int, default=None, help="End index of evaluation samples")
     return parser.parse_args()
 
 
@@ -59,6 +61,13 @@ def main():
     
     # Add an ID column so we can restore the exact order after multi-GPU processing
     eval_raw = eval_raw.add_column("id", range(len(eval_raw)))
+    
+    # Filter dataset by start_index and end_index if specified
+    if args.start_index is not None or args.end_index is not None:
+        start = args.start_index if args.start_index is not None else 0
+        end = args.end_index if args.end_index is not None else len(eval_raw)
+        logger.info(f"Filtering dataset to samples from index {start} to {end} (total {end - start} samples)")
+        eval_raw = eval_raw.select(range(start, end))
     
     # Define temporary file for this specific GPU
     part_file = f"{args.output}.part{accelerator.process_index}"
@@ -171,6 +180,10 @@ def main():
         
         # Generate the full evaluation raw dataset again (without sharding) to get all references
         eval_raw_full = builder.generate_training_data(eval_docs)
+        if args.start_index is not None or args.end_index is not None:
+            start = args.start_index if args.start_index is not None else 0
+            end = args.end_index if args.end_index is not None else len(eval_raw_full)
+            eval_raw_full = eval_raw_full.select(range(start, end))
         all_references = eval_raw_full["assistant"]
         
         logger.info("Computing metrics...")
