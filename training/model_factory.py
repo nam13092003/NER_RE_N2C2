@@ -101,13 +101,37 @@ class ModelFactory:
                 logger.info("Copied chat template from processor to tokenizer.")
 
         # Ensure the tokenizer has a chat template.
-        # Qwen2.5, Gemma, and most modern instruct models ship with their
-        # own template; only fall back to 'chatml' if none is present.
         if tokenizer.chat_template is None:
-            logger.info("No chat template found — applying 'chatml'.")
-            tokenizer = get_chat_template(tokenizer, chat_template="chatml")
+            model_name_lower = model_cfg.name.lower()
+            if 'gemma' in model_name_lower:
+                # Gemma uses <start_of_turn>/<end_of_turn> tokens which are
+                # incompatible with Unsloth's get_chat_template("chatml").
+                # Set the native Gemma chat template directly.
+                logger.info("Gemma model detected — applying native Gemma chat template.")
+                tokenizer.chat_template = (
+                    "{{ bos_token }}"
+                    "{% for message in messages %}"
+                    "{% if message['role'] == 'user' %}"
+                    "{{ '<start_of_turn>user\n' + message['content'] + '<end_of_turn>\n' }}"
+                    "{% elif message['role'] == 'model' or message['role'] == 'assistant' %}"
+                    "{{ '<start_of_turn>model\n' + message['content'] + '<end_of_turn>\n' }}"
+                    "{% elif message['role'] == 'system' %}"
+                    "{{ '<start_of_turn>user\n' + message['content'] + '<end_of_turn>\n' }}"
+                    "{% endif %}"
+                    "{% endfor %}"
+                    "{% if add_generation_prompt %}"
+                    "{{ '<start_of_turn>model\n' }}"
+                    "{% endif %}"
+                )
+            else:
+                logger.info("No chat template found — applying 'chatml'.")
+                tokenizer = get_chat_template(tokenizer, chat_template="chatml")
         else:
             logger.info("Using model's built-in chat template.")
+
+        # Ensure pad token is set
+        if tokenizer.pad_token is None:
+            tokenizer.pad_token = tokenizer.eos_token
 
         return model, tokenizer
 
