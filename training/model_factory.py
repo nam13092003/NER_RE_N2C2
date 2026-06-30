@@ -87,12 +87,18 @@ class ModelFactory:
         # Handle multimodal processors (e.g., Gemma4Processor).
         # These wrap a tokenizer internally but lack standard tokenizer
         # methods like .encode(), which breaks the rest of the pipeline.
+        # We also need to preserve the chat_template from the processor
+        # since the underlying tokenizer may not have it set.
         if hasattr(tokenizer, 'tokenizer') and not hasattr(tokenizer, 'encode'):
             logger.info(
                 "Detected multimodal processor (%s) — extracting underlying tokenizer.",
                 type(tokenizer).__name__,
             )
+            processor_chat_template = getattr(tokenizer, 'chat_template', None)
             tokenizer = tokenizer.tokenizer
+            if processor_chat_template and not tokenizer.chat_template:
+                tokenizer.chat_template = processor_chat_template
+                logger.info("Copied chat template from processor to tokenizer.")
 
         # Ensure the tokenizer has a chat template.
         # Qwen2.5, Gemma, and most modern instruct models ship with their
